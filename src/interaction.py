@@ -189,11 +189,14 @@ class Interaction(Target):
         dV = np.zeros((self.FF.np,len(emm)))
 
         if self.writelevel > 0:
+            import pickle
             # Dump interaction energies to disk.
             np.savetxt('M.txt',emm)
             np.savetxt('Q.txt',self.eqm)
-            import pickle
-            pickle.dump((self.name, self.label, self.prefactor, self.eqm, emm), open("qm_vs_mm.p",'w'))
+
+            with open("qm_vs_mm.p", "wb") as f:
+                pickle.dump((self.name, self.label, self.prefactor, self.eqm, emm), f)
+            
             # select the qm and mm data that has >0 weight to plot
             qm_data, mm_data = [], []
             for i in range(len(self.eqm)):
