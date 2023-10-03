@@ -189,11 +189,14 @@ class Interaction(Target):
         dV = np.zeros((self.FF.np,len(emm)))
 
         if self.writelevel > 0:
+            import pickle
+
             # Dump interaction energies to disk.
             np.savetxt('M.txt',emm)
             np.savetxt('Q.txt',self.eqm)
-            import pickle
-            pickle.dump((self.name, self.label, self.prefactor, self.eqm, emm), open("qm_vs_mm.p",'w'))
+            
+            with open("qm_vs_mm.p", "wb") as f:
+                pickle.dump((self.name, self.label, self.prefactor, self.eqm, emm), f)
             # select the qm and mm data that has >0 weight to plot
             qm_data, mm_data = [], []
             for i in range(len(self.eqm)):
@@ -207,7 +210,7 @@ class Interaction(Target):
             for p in self.pgrad:
                 dV[p,:], _ = f12d3p(fdwrap(callM, mvals, p), h = self.h, f0 = emm)
             # Create the force field one last time.
-            pvals  = self.FF.make(mvals)
+            # pvals  = self.FF.make(mvals)
 
         Answer['X'] = np.dot(self.prefactor*D/self.divisor,D/self.divisor)
         for p in self.pgrad:
@@ -218,15 +221,16 @@ class Interaction(Target):
         if not in_fd():
             self.emm = emm
             self.objective = Answer['X']
+            self.FF.make(mvals)
 
         ## QYD: try to clean up OpenMM engine.simulation objects to free up GPU memory
-        try:
-            if self.engine.name == 'openmm':
-                if hasattr(self.engine, 'simulation'): del self.engine.simulation
-                if hasattr(self.engine, 'A'): del self.engine.A
-                if hasattr(self.engine, 'B'): del self.engine.B
-        except:
-            pass
+        # try:
+        #     if self.engine.name == 'openmm':
+        #         if hasattr(self.engine, 'simulation'): del self.engine.simulation
+        #         if hasattr(self.engine, 'A'): del self.engine.A
+        #         if hasattr(self.engine, 'B'): del self.engine.B
+        # except:
+        #     pass
 
         return Answer
 
