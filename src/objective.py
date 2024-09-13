@@ -215,6 +215,7 @@ class Objective(forcebalance.BaseClass):
         # Loop through the targets, stage the directories and submit the Work Queue processes.
         for Tgt in self.Targets:
             Tgt.stage(mvals, AGrad = Order >= 1, AHess = Order >= 2, customdir=customdir)
+        logger.info(f"Asynchronous: {self.asynchronous}")
         if self.asynchronous:
             # Asynchronous evaluation of objective function and Work Queue tasks.
             # Create a list of the targets, and remove them from the list as they are finished.

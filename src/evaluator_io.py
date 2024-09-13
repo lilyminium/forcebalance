@@ -698,7 +698,7 @@ class Evaluator_SMIRNOFF(Target):
         finished: bool
             True if all jobs are finished, False if not
         """
-
+        logger.info(f"Checking pending results...")
         estimation_results, _ = self._pending_estimate_request.results()
         
         n_complete = len(estimation_results.estimated_properties)
