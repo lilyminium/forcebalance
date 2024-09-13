@@ -700,6 +700,10 @@ class Evaluator_SMIRNOFF(Target):
         """
 
         estimation_results, _ = self._pending_estimate_request.results()
+        
+        n_complete = len(estimation_results.estimated_properties)
+        n_queued = len(estimation_results.queued_properties)
+        logger.info(f"n_complete: {n_complete}, n_queued: {n_queued}")
 
         return (
             isinstance(estimation_results, EvaluatorException)
