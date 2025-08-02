@@ -103,6 +103,7 @@ import numpy as np
 import networkx as nx
 from numpy import sin, cos, tan, sinh, cosh, tanh, exp, log, sqrt, pi
 from re import match, sub, split
+import re
 import forcebalance
 from forcebalance import gmxio, qchemio, tinkerio, custom_io, openmmio, amberio, psi4io, smirnoffio
 from forcebalance.finite_difference import in_fd
@@ -747,7 +748,7 @@ class FF(forcebalance.BaseClass):
                 res = re.search(r'^[-+]?[0-9]*\.?[0-9]*([eEdD][-+]?[0-9]+)?', quantity_str)
                 value_str, unit_str = quantity_str[:res.end()], quantity_str[res.end():]
                 # LPW 2023-01-23: Behavior of parameter unit string for "evaluated" parameter is undefined.
-                unit_str = ""
+                # unit_str = ""
                 quantity_str = e.get(parameter_name)
                 self.offxml_unit_strs[dest] = unit_str
 
