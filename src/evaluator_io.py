@@ -352,7 +352,7 @@ class Evaluator_SMIRNOFF(Target):
         ):
             is_cosmetic = True
 
-        if parameter is not None and not isinstance(parameter_value, openff_unit.Quantity):
+        if parameter_value is not None and not isinstance(parameter_value, openff_unit.Quantity):
             parameter_value = parameter_value * openff_unit.dimensionless
 
         #return openmm_quantity_to_pint(parameter_value), is_cosmetic
