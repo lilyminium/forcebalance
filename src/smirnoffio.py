@@ -141,6 +141,9 @@ class SMIRNOFF_Reader(BaseReader):
         InteractionType = element.tag
         try:
             Involved = element.attrib["smirks"]
+            # match the info in an Interchange virtual site key, I think?
+            if ParentType == "VirtualSites" and InteractionType == "VirtualSite":
+                Involved += f"/{element.attrib['type']}/{element.attrib['name']}/{element.attrib['match']}"
             return "/".join([ParentType, InteractionType, parameter, Involved])
         except:
             logger.info("Minor warning: Parameter ID %s doesn't contain any SMIRKS patterns, redundancies are possible\n" % ("/".join([InteractionType, parameter])))
@@ -159,6 +162,8 @@ def assign_openff_parameter(ff, new_value, pid):
     # We use "value_name" to describe names of individual numerical values within a single parameter type
     # e.g. k1 in the above example.
 
+    # Note, we now special case virtual sites because their parameter IDs are more complex.
+
     if pid.startswith("/"):
         # Handle the case were we are optimizing a handler attribute directly such
         # as the 1-4 scaling factor.
@@ -168,20 +173,39 @@ def assign_openff_parameter(ff, new_value, pid):
         parameter_container = ff.get_parameter_handler(handler_name)
 
     else:
-        (handler_name, tag_name, value_name, smirks) = pid.split('/')
+        (handler_name, tag_name, value_name, smirks) = pid.split('/', maxsplit=3)
 
         from openff.toolkit.typing.engines.smirnoff import ParameterList
 
         # Get the OpenFF parameter object
+        handler = ff.get_parameter_handler(handler_name)
 
         # Temporary workaround for OpenFF issue #884
-        if not isinstance(ff.get_parameter_handler(handler_name).parameters, ParameterList):
-
-            ff.get_parameter_handler(handler_name)._parameters = ParameterList(
+        if not isinstance(handler.parameters, ParameterList):
+            handler._parameters = ParameterList(
                 ff.get_parameter_handler(handler_name).parameters
             )
 
-        parameter_container = ff.get_parameter_handler(handler_name).parameters[smirks]
+        if handler_name == "VirtualSites" and tag_name == "VirtualSite":
+            # manually search parameters to find it
+            smirks, type_, name, match = smirks.split("/")
+            matching_containers = []
+            for possible_container in handler.parameters:
+                if all(
+                    [
+                        possible_container.smirks == smirks,
+                        possible_container.type == type_,
+                        possible_container.name == name,
+                        possible_container.match == match,
+                    ]
+                ):
+                    matching_containers.append(possible_container)
+            
+            assert len(matching_containers) == 1, f"Could not uniquely identify VirtualSite parameter with pid {pid}"
+            parameter_container = matching_containers[0]
+        
+        else:
+            parameter_container = handler.parameters[smirks]
 
     # Get param_quantity so we can inspect the type and apply units later if appropriate.
     # Also check for a few special cases and handle them individually.
@@ -419,8 +443,8 @@ class SMIRNOFF(OpenMM):
 
         n_virtual_sites = 0
         self._has_virtual_sites = False
-        if 'VirtualSites' in interchange.handlers:
-            n_virtual_sites = len(interchange['VirtualSites'].slot_map)
+        if 'VirtualSites' in interchange.collections:
+            n_virtual_sites = len(interchange['VirtualSites'].key_map)
             if n_virtual_sites > 0:
                 self._has_virtual_sites = True
 
@@ -504,14 +528,14 @@ class SMIRNOFF(OpenMM):
         #         delattr(self, 'simulation')
         # self.vsprm = vsprm.copy()
 
-        has_vsites = False
-        for particle_idx in range(self.system.getNumParticles()):
-            if self.system.isVirtualSite(particle_idx):
-                has_vsites = True
+        # has_vsites = False
+        # for particle_idx in range(self.system.getNumParticles()):
+        #     if self.system.isVirtualSite(particle_idx):
+        #         has_vsites = True
 
-        if has_vsites:
-            raise Exception("ForceBalance can't currently handle SMIRNOFF vsites. "
-                            "Downgrade to ForceBalance 1.9.3 or earlier to handle those.")
+        # if has_vsites:
+        #     raise Exception("ForceBalance can't currently handle SMIRNOFF vsites. "
+        #                     "Downgrade to ForceBalance 1.9.3 or earlier to handle those.")
 
         if hasattr(self, 'simulation'):
             UpdateSimulationParameters(self.system, self.simulation)
