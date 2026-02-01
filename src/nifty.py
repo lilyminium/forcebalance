@@ -35,6 +35,7 @@ try:
 except ImportError:
     from itertools import izip_longest as zip_longest
 import threading
+import copyreg
 from pickle import Pickler, Unpickler
 import tarfile
 import time
@@ -43,6 +44,11 @@ import math
 import six # For six.string_types
 from subprocess import PIPE
 from collections import OrderedDict, defaultdict
+
+# === pickle Versions ===
+# this is necessary for OpenFF force field objects
+from packaging.version import Version
+copyreg.pickle(Version, lambda v: (Version, (str(v),)))
 
 #================================#
 #       Set up the logger        #
