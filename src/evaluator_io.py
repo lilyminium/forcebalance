@@ -318,10 +318,26 @@ class Evaluator_SMIRNOFF(Target):
         parameter_handler = self.FF.openff_forcefield.get_parameter_handler(
             gradient_key.tag
         )
-        parameter = (
-            parameter_handler if gradient_key.smirks is None
-            else parameter_handler.parameters[gradient_key.smirks]
-        )
+        if gradient_key.tag == "VirtualSites":
+            # special case vsites
+            if gradient_key.smirks is None:
+                raise ValueError("VirtualSite parameter gradient key must have smirks.")
+            # find the parameter with the matching complex smirks
+            matches = []
+            for param in parameter_handler.parameters:
+                vsite_key = f"{param.smirks}/{param.type}/{param.name}/{param.match}"
+                if vsite_key == gradient_key.smirks:
+                    matches.append(param)
+            
+            assert len(matches) <= 1, f"Multiple VirtualSite parameters found for key {gradient_key}."
+            parameter = matches[0] if len(matches) == 1 else None
+            if parameter is None:
+                raise ValueError(f"Could not find VirtualSite parameter for key {gradient_key}.")
+        else:
+            parameter = (
+                parameter_handler if gradient_key.smirks is None
+                else parameter_handler.parameters[gradient_key.smirks]
+            )
 
         attribute_split = re.split(r"(\d+)", gradient_key.attribute)
         attribute_split = list(filter(None, attribute_split))
@@ -482,6 +498,17 @@ class Evaluator_SMIRNOFF(Target):
                     parameter_tag = key_split[0].strip()
                     parameter_smirks = key_split[3].strip()
                     parameter_attribute = key_split[2].strip()
+                # special case vsites
+                elif (
+                    len(key_split) == 7
+                    and key_split[0] == "VirtualSites"
+                    and key_split[1] == "VirtualSite"
+                ):
+                    tag, _, attr, smirks, type_, name, match = key_split
+                    parameter_tag = tag.strip()
+                    parameter_smirks = f"{smirks.strip()}/{type_.strip()}/{name.strip()}/{match.strip()}"
+                    parameter_attribute = attr.strip()
+
                 else:
                     raise NotImplementedError()
 
