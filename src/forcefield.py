@@ -118,6 +118,29 @@ logger = getLogger(__name__)
 
 try:
     from lxml import etree
+
+    # TODO: this is probably a bad place for this to live
+    # but probably ok as a patch
+
+    def _unpickle_element_tree(data):
+        """
+        Reconstruct an lxml _ElementTree from its serialized bytes.
+        Pickling is not currently natively supported so this patches copyreg
+        """
+        root = etree.fromstring(data)
+        return root.getroottree()
+
+    def _pickle_element_tree(tree) -> tuple:
+        """
+        Reduce an lxml _ElementTree to a bytes representation.
+        Pickling is not currently natively supported so this patches copyreg
+        """
+        data = etree.tostring(tree, xml_declaration=True, encoding="UTF-8", standalone=True)
+        return (_unpickle_element_tree, (data,))
+
+    # globally register pickle function. Pickler contains reference to unpickler
+    copyreg.pickle(etree._ElementTree, elementtree_pickler)
+
 except:
     logger.warning("Failed to import lxml module, needed by OpenMM engine")
 
