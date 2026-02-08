@@ -440,11 +440,9 @@ def CopySystemParameters(src,dest):
 
 def UpdateSimulationParameters(src_system, dest_simulation):
     CopySystemParameters(src_system, dest_simulation.system)
-    # see issue https://github.com/openmm/openmm/issues/5204
-    dest_simulation.context.reinitialize(preserveState=True)
     for i in range(src_system.getNumForces()):
-        # if hasattr(dest_simulation.system.getForce(i),'updateParametersInContext'):
-        #     dest_simulation.system.getForce(i).updateParametersInContext(dest_simulation.context)
+        if hasattr(dest_simulation.system.getForce(i),'updateParametersInContext'):
+            dest_simulation.system.getForce(i).updateParametersInContext(dest_simulation.context)
         if isinstance(dest_simulation.system.getForce(i), (CustomNonbondedForce, CustomBondForce)):
             force = src_system.getForce(i)
             for j in range(force.getNumGlobalParameters()):
