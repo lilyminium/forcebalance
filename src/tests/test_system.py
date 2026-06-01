@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from builtins import str
 import os, shutil
+import socket
 import subprocess
 import re
 import sys
@@ -205,6 +206,20 @@ class TestThermoBromineStudy(ForceBalanceSystemTest):
         self.run_optimizer()
 
 
+def _assert_evaluator_port_free(port, host="localhost"):
+    """Fail fast if an evaluator server (e.g. one left running by a previous
+    test) already holds ``port``. Otherwise client hangs forever
+    talking to the stale server.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1.0)
+        if s.connect_ex((host, port)) == 0:
+            raise RuntimeError(
+                f"Port {port} ({host}) is already in use, most likely by an evaluator "
+                "server left running by a previous test"
+            )
+
+
 class EvaluatorServerMixin:
     """Mixin that manages an openff-evaluator server subprocess for tests.
 
@@ -227,6 +242,7 @@ class EvaluatorServerMixin:
 
     def _start_evaluator_server(self):
         import subprocess, time
+        # _assert_evaluator_port_free(self._server_port)
         self._server_log_path = os.path.abspath("server.log")
         self._server_log = open(self._server_log_path, "w")
         self.estimator_process = subprocess.Popen(
@@ -310,6 +326,28 @@ class TestEvaluatorBromineStudy(EvaluatorServerMixin, ForceBalanceSystemTest):
             err_msg="\nObjective outside expected range. Update EXPECTED_EVALUATOR_BROMINE_OBJECTIVE if reasonable.")
         np.testing.assert_allclose(EXPECTED_EVALUATOR_BROMINE_GRADIENT, G, atol=4300,
             err_msg="\nGradient outside expected range. Update EXPECTED_EVALUATOR_BROMINE_GRADIENT if reasonable.")
+
+
+class TestEvaluatorServerStartup:
+    """Fast guard for the evaluator port pre-flight that prevents the
+    leftover-server hang -- no openff.evaluator or real server needed."""
+
+    def test_free_port_passes(self):
+        """A free port does not raise."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", 0))
+            port = s.getsockname()[1]
+        _assert_evaluator_port_free(port)
+
+    def test_leftover_server_is_detected(self):
+        """A port held by a (simulated leftover) server fails fast."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("localhost", 0))
+            s.listen(128)
+            port = s.getsockname()[1]
+            with pytest.raises(RuntimeError, match="already in use"):
+                _assert_evaluator_port_free(port)
+
 
 class TestLipidStudy(ForceBalanceSystemTest):
     def setup_method(self, method):
